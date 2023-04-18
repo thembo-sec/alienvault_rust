@@ -5,14 +5,9 @@ use serde_json::{json, Value};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let request_headers = json!({
-        "X-OTX-API-KEY": "77b957820d05feadb7eff41a2fe124f3c832b76bb307724a9f2391f1e33c6e29",
-        "User-Agent": "OTX RUST/0.0.1",
-        "Content-Type": "application/json"
-    });
-
     let request_url =
         "https://otx.alienvault.com/api/v1/pulses/user/AlienVault?2023-01-01T12:35:00+00:00";
+
     let response = Client::new()
         .get(request_url)
         .header(
@@ -26,12 +21,16 @@ async fn main() -> Result<(), Error> {
     let headers = response.headers().clone();
 
     let response_body = response.text().await?;
+
     let v: Value = serde_json::from_str(&response_body).unwrap();
 
-    print!(
-        "Status: {:?}\nHeaders: {:#?}\nBody:{:#?}",
-        status, headers, v
-    );
+    let test = v["results"].as_array().unwrap();
+
+    println!("Status: {:?}\nHeaders: {:#?}", status, headers);
+
+    for item in test.iter() {
+        println!("{:#?}", item)
+    }
 
     Ok(())
 }
@@ -49,16 +48,16 @@ struct Pulse {
 
 #[derive(Deserialize, Debug)]
 enum PulseSource {
-    web,
-    api,
+    web(String),
+    api(String),
 }
 
 #[derive(Deserialize, Debug)]
 enum TLP {
-    white,
-    green,
-    amber,
-    red,
+    white(String),
+    green(String),
+    amber(String),
+    red(String),
 }
 
 #[derive(Deserialize, Debug)]
