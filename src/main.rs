@@ -1,19 +1,23 @@
 use chrono::prelude::*;
+use dotenv::dotenv;
 use reqwest::{Client, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::{env, iter::Map};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    env::set_var("RUST_BACKTRACE", "1");
+    dotenv().ok();
+
+    let ALIENVAULT_API_TOKEN = std::env::var("ALIENVAULT_APIKEY").expect("No token found");
+
     let request_url =
         "https://otx.alienvault.com/api/v1/pulses/user/AlienVault?2023-01-01T12:35:00+00:00";
 
     let response = Client::new()
         .get(request_url)
-        .header(
-            "X-OTX-API-KEY",
-            "77b957820d05feadb7eff41a2fe124f3c832b76bb307724a9f2391f1e33c6e29",
-        )
+        .header("X-OTX-API-KEY", ALIENVAULT_API_TOKEN)
         .send()
         .await?;
 
@@ -24,15 +28,24 @@ async fn main() -> Result<(), Error> {
 
     let v: Value = serde_json::from_str(&response_body).unwrap();
 
-    let test = v["results"].as_array().unwrap();
+    let r: OtxResponse = serde_json::from_str(&response_body).unwrap();
 
-    println!("Status: {:?}\nHeaders: {:#?}", status, headers);
+    println!(
+        "Status: {:?}\nHeaders: {:#?}\nBody: {:#?}",
+        status, headers, v
+    );
 
-    for item in test.iter() {
-        println!("{:#?}", item)
-    }
+    println!("Serialized: {:#?}", r);
 
     Ok(())
+}
+
+#[derive(Deserialize, Debug)]
+struct OtxResponse {
+    count: u16,
+    next: Option<String>,
+    previous: Option<String>,
+    results: Vec<Pulse>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -42,22 +55,33 @@ struct Pulse {
     created: String,
     modified: String,
     pulse_source: PulseSource,
-    tlp: TLP,
+    TLP: Tlp,
+    adversary: String,
     description: String,
+    attack_ids: Vec<AttackID>,
 }
 
 #[derive(Deserialize, Debug)]
+struct AttackID {
+    id: String,
+    display_name: String,
+    name: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
 enum PulseSource {
-    web(String),
-    api(String),
+    Web,
+    Api,
 }
 
 #[derive(Deserialize, Debug)]
-enum TLP {
-    white(String),
-    green(String),
-    amber(String),
-    red(String),
+#[serde(rename_all = "lowercase")]
+enum Tlp {
+    White,
+    Green,
+    Amber,
+    Red,
 }
 
 #[derive(Deserialize, Debug)]
